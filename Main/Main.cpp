@@ -9,6 +9,7 @@
 #include <functional>
 #include <variant>
 #include <utility>
+#include <algorithm>
 
 #include "../Libraries/Pipeline.h"
 #include "../Libraries/FileManip.h"
@@ -36,15 +37,15 @@ const std::array <Task, N_FUNCS> Tasks = {
 
 struct TaskLauncher {
 public:
-	TaskLauncher(const DataContainer & DC) : Data_{DC}, Parameter_{0.} {}
-	TaskLauncher(const DataContainer & DC, double Parameter) : Data_{DC}, Parameter_{Parameter} {}
+	explicit TaskLauncher(const DataContainer & DC, double Parameter = {}) : Data_{DC}, Parameter_{Parameter} {}
 
 	DataContainer operator() (std::function<DataContainer(const DataContainer&)> F) {return F(Data_);}
-	DataContainer operator() (std::function<DataContainer(const DataContainer&, const double)> F) {return F(Data_, Parameter_);}
+	DataContainer operator() (std::function<DataContainer(const DataContainer&, const double)> F) {
+        return F(Data_, Parameter_);}
 	
 private:	
 	const DataContainer & Data_;
-	const double & Parameter_;
+	double Parameter_;
 };
 
 DataContainer ReadData (const std::filesystem::path& InFile, const std::wstring& TypeOfDataIn) {
@@ -68,8 +69,8 @@ DataContainer ReadData (const std::filesystem::path& InFile, const std::wstring&
 	return Data;
 }
 
-void WriteData (const DataContainer& Data, const std::filesystem::path& OutPath,
-				const std::wstring& OutputName, const std::wstring& TypeOfDataOut, const int FileNumber) {
+void WriteData (const DataContainer& Data, const std::filesystem::path& OutPath, 
+    const std::wstring& OutputName, const std::wstring& TypeOfDataOut, const int FileNumber) {
     jsoncons::wojson JData;
     JData.insert_or_assign(L"List", jsoncons::json_array_arg);
     for (unsigned long int I = 0; I != Data[0].size(); ++I) {
@@ -111,17 +112,21 @@ int main(int Nargs, char** Args) {
         //Process instructions
 		jsoncons::wojson Instructions;
         Instructions = jsoncons::wojson::parse(Input);
-        const unsigned long int Selector = Instructions[L"Selector"].as<unsigned long int>();
+        const std::vector<int> TaskList = Instructions[L"TaskList"].as<std::vector<int>>();
         const std::filesystem::path InstructionsPath = Instructions[L"InstructionsPath"].as<std::wstring>();
         const std::vector<std::wstring> InstructionsFiles = Instructions[L"InstructionsFiles"].as<std::vector<std::wstring>>();
-        for (auto & InstFile : InstructionsFiles) {
+        if (TaskList.size() != InstructionsFiles.size()) {
+            std::wcerr << L"Error: Number of tasks and instructions do not match."<<std::endl;
+            return 2;
+        }        
+        for (unsigned long int I = 0 ; I != TaskList.size() ; ++I) {
 			jsoncons::wojson TaskInstructions;
 			{
-       			std::wstringstream Temp = FileManip::DataInput(InstructionsPath/InstFile);
+       			std::wstringstream Temp = FileManip::DataInput(InstructionsPath/InstructionsFiles[I]);
        			TaskInstructions = jsoncons::wojson::parse(Temp);
         	}
         	const std::filesystem::path InputPath = TaskInstructions[L"InputPath"].as<std::wstring>();
-    		const std::vector<std::wstring> InputNames = TaskInstructions[L"InputNames"].as<std::vector<std::wstring>>();
+    		std::vector<std::wstring> InputNames = TaskInstructions[L"InputNames"].as<std::vector<std::wstring>>();
         	const std::filesystem::path OutputPath = TaskInstructions[L"OutputPath"].as<std::wstring>();
         	const std::vector<std::wstring> OutputNames = TaskInstructions[L"OutputNames"].as<std::vector<std::wstring>>();
             const std::wstring TypeOfDataIn = TaskInstructions[L"TypeOfDataIn"].as<std::wstring>();
@@ -129,20 +134,20 @@ int main(int Nargs, char** Args) {
             const double Parameter = TaskInstructions[L"Parameter"].as<double>();
 	        if (InputNames.size() != OutputNames.size()) {
 	            std::wcerr << L"Error: Number of input and output names do not match."<<std::endl;
-	            return 1;
+	            return 2;
 	        }
-			for (unsigned long int I = 0; I != InputNames.size(); ++I) {
-				std::vector<std::filesystem::path> WorkingFiles = Explore::ExploreDirectoryByName(InputNames[I], InputPath);
-				for (unsigned long int J = 0; J != WorkingFiles.size(); ++J) {
-					DataContainer Data = ReadData (InputPath/WorkingFiles[J], TypeOfDataIn);
-					for (unsigned long int K = 0 ; K != Tasks.size() ; ++K) {
-						if (Selector & (1 << K)) {
-							std::visit(TaskLauncher{Data, Parameter}, Tasks[K]);
-						}
-					}
-					WriteData(Data, OutputPath, OutputNames[I], TypeOfDataOut, J);			
-				}
-			}
+            for (unsigned long int J = 0; J != InputNames.size(); ++J) {
+                std::sort(InputNames.begin(), InputNames.end());
+            //std::wcerr << InputNames[0]<<std::endl;
+                std::vector<std::filesystem::path> WorkingFiles = Explore::ExploreDirectoryByName(InputNames[J], InputPath);
+                for (unsigned long int K = 0; K != WorkingFiles.size(); ++K) {
+                    std::sort(WorkingFiles.begin(), WorkingFiles.end());
+            //std::wcerr << WorkingFiles[0]<<std::endl;
+                    DataContainer Data = ReadData (InputPath/WorkingFiles[K], TypeOfDataIn);
+                    auto NewData = std::visit(TaskLauncher{Data, Parameter}, Tasks[TaskList[I]]);
+                    WriteData(NewData, OutputPath, OutputNames[J], TypeOfDataOut, K);
+			    }
+		    }
        	}
     }
 	return 0;

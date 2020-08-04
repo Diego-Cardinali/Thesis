@@ -24,6 +24,7 @@ add_executable("${PROJECT_NAME}" ${SOURCE_FILES})
 target_link_libraries("${PROJECT_NAME}" boost_system boost_filesystem)
 
 if(NOT CMAKE_BUILD_TYPE)
+	#set(CMAKE_BUILD_TYPE Debug)
 	set(CMAKE_BUILD_TYPE Release)
 endif()
 
