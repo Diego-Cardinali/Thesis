@@ -6,14 +6,20 @@ set(CMAKE_CXX_COMPILER g++)           # Force g++
 INCLUDE_DIRECTORIES(../Libraries/)
 
 set(SOURCE_FILES  "Main.cpp" 
-	"./../Libraries/Pipeline.cpp" 
 	"./../Libraries/Pipeline.h"
-	"./../Libraries/ExploreDirectory.cpp"
+	"./../Libraries/Pipeline.cpp" 
 	"./../Libraries/ExploreDirectory.h"
-	"./../Libraries/FileManip.cpp"
+	"./../Libraries/ExploreDirectory.cpp"
 	"./../Libraries/FileManip.h"
+	"./../Libraries/FileManip.cpp"
+	"DataToJson.h"
+	"DataToJson.cpp"
+	"CartesianToSpherical.h"
 	"CartesianToSpherical.cpp"
+	"Variations.h"
 	"Variations.cpp"
+	"Histogram.h"
+	"Histogram.cpp"
 	)
 
 find_package(Boost 1.65 QUIET REQUIRED COMPONENTS system filesystem)
@@ -29,6 +35,6 @@ if(NOT CMAKE_BUILD_TYPE)
 endif()
 
 set(CMAKE_CXX_FLAGS "-Wall -Wextra -fdiagnostics-color=always")
-set(CMAKE_CXX_FLAGS_DEBUG "-g")
+set(CMAKE_CXX_FLAGS_DEBUG "-O0 -g")
 set(CMAKE_CXX_FLAGS_RELEASE "-O3")
 set(EXECUTABLE_OUTPUT_PATH ./../Executables)

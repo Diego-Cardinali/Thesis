@@ -1,13 +1,4 @@
-#include <vector>
-#include <array>
-
-#include <boost/geometry.hpp> //Header only, no linking necessary
-
-/*********************************************************
-*        This code converts cartesian data (of the type  *
-*        TypeOfData) into spherical coordinates in the   *
-*        form (Azimuth, Inclination, Radius).            *
-*********************************************************/
+#include "CartesianToSpherical.h"
 
 namespace BG = boost::geometry;
 typedef BG::model::point<double, 3, BG::cs::cartesian> CartesianPoint;

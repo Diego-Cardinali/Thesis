@@ -1,5 +1,4 @@
-#include <vector>
-#include <array>
+#include "Variations.h"
 
 std::array<std::vector<double>, 3> VariationsOnDeltaT (const std::array<std::vector<double>, 3>& Data, const double DeltaT) {
 	std::array<std::vector<double>, 3> ProcessedData;

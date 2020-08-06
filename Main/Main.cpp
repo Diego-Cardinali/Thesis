@@ -1,52 +1,31 @@
 #include <iostream>
-#include <jsoncons/json.hpp>
 #include <vector>
 #include <string>
 #include <fstream>
 #include <filesystem>
 #include <array>
 #include <iterator>
-#include <functional>
-#include <variant>
-#include <utility>
 #include <algorithm>
+
+#include <jsoncons/json.hpp>
+
+#include "DataToJson.h"
+#include "CartesianToSpherical.h"
+#include "Variations.h"
+#include "Histogram.h"
 
 #include "../Libraries/Pipeline.h"
 #include "../Libraries/FileManip.h"
 #include "../Libraries/ExploreDirectory.h"  //requires Boost
 
-#define N_FUNCS 3
+#define DATATOJSON   0u
+#define CARTTOSPH    1u
+#define VARONDELTAT  2u
+#define VARIATIONS   3u
+#define HISTOGRAMS   4u
+#define JOINFILES    5u
 
 using DataContainer = std::array<std::vector<double>, 3>;
-using Task = std::variant<
-	std::function<DataContainer(const DataContainer&)>,
-	std::function<DataContainer(const DataContainer&, const double)>
-	>;
-
-extern DataContainer CartesianToSpherical (const DataContainer&);
-extern DataContainer VariationsOnDeltaT (const DataContainer&, const double);
-extern DataContainer Variations (const DataContainer&);
-///*extern*/ DataContainer AngleVariationOnUnitSphere (const DataContainer& DC) {std::cout << 2 <<std::endl; return DC;};
-//DataContainer Placeholder (const DataContainer& DC, const double) {std::cout << 3 <<std::endl; return DC;};
-
-const std::array <Task, N_FUNCS> Tasks = {
-		&CartesianToSpherical,
-		&VariationsOnDeltaT,
-		&Variations
-	};
-
-struct TaskLauncher {
-public:
-	explicit TaskLauncher(const DataContainer & DC, double Parameter = {}) : Data_{DC}, Parameter_{Parameter} {}
-
-	DataContainer operator() (std::function<DataContainer(const DataContainer&)> F) {return F(Data_);}
-	DataContainer operator() (std::function<DataContainer(const DataContainer&, const double)> F) {
-        return F(Data_, Parameter_);}
-	
-private:	
-	const DataContainer & Data_;
-	double Parameter_;
-};
 
 DataContainer ReadData (const std::filesystem::path& InFile, const std::wstring& TypeOfDataIn) {
     std::array <std::vector <double>, 3> Data;
@@ -69,6 +48,32 @@ DataContainer ReadData (const std::filesystem::path& InFile, const std::wstring&
 	return Data;
 }
 
+DataContainer MassReadData (const std::filesystem::path& InPath, 
+    const std::vector<std::filesystem::path>& InFiles, const std::wstring& TypeOfDataIn) {
+    DataContainer MergedData;
+    std::vector<DataContainer> DataToMerge;
+    DataToMerge.reserve(InFiles.size());
+    for (const auto & InFile: InFiles) {
+        DataToMerge.push_back(ReadData(InPath/InFile, TypeOfDataIn));
+	}
+    size_t Size = 0;
+    for (const auto & Datum : DataToMerge) {
+        Size+=Datum[0].size();
+    }
+    MergedData[0].reserve(Size);
+    MergedData[1].reserve(Size);
+    MergedData[2].reserve(Size);
+    for (unsigned long int I = 0; I != DataToMerge.size(); ++I) {
+        MergedData[0].insert(MergedData[0].end(), DataToMerge[I][0].begin(), DataToMerge[I][0].end());
+        DataToMerge[I][0].clear();
+        MergedData[1].insert(MergedData[1].end(), DataToMerge[I][1].begin(), DataToMerge[I][1].end());
+        DataToMerge[I][1].clear();
+        MergedData[2].insert(MergedData[2].end(), DataToMerge[I][2].begin(), DataToMerge[I][2].end());
+        DataToMerge[I][2].clear();
+    }
+    return MergedData;
+}
+
 void WriteData (const DataContainer& Data, const std::filesystem::path& OutPath, 
     const std::wstring& OutputName, const std::wstring& TypeOfDataOut, const int FileNumber) {
     jsoncons::wojson JData;
@@ -81,6 +86,39 @@ void WriteData (const DataContainer& Data, const std::filesystem::path& OutPath,
         Coordinates[TypeOfDataOut].push_back(Data[2][I]);
         JData[L"List"].push_back(Coordinates);
     }
+    //Save Data
+    std::wstring Number;
+    {
+        std::wstringstream Temp;
+        Temp << std::setw(3) << std::setfill(L'0') << FileNumber+1;
+        Number = Temp.str();
+    }
+    std::filesystem::path Output =  OutPath/std::wstring(OutputName+L"_"+Number+L".json");
+    std::wofstream OutStream (Output);
+    OutStream << JData;
+    OutStream.close();
+}
+
+void WriteData (const DataContainer& Data, const std::filesystem::path& OutPath, 
+    const std::wstring& OutputName, const std::wstring& TypeOfDataOut) {
+    jsoncons::wojson JData;
+    JData.insert_or_assign(L"List", jsoncons::json_array_arg);
+    for (unsigned long int I = 0; I != Data[0].size(); ++I) {
+        jsoncons::wojson Coordinates;
+        Coordinates.insert_or_assign(TypeOfDataOut, jsoncons::json_array_arg);
+        Coordinates[TypeOfDataOut].push_back(Data[0][I]);
+        Coordinates[TypeOfDataOut].push_back(Data[1][I]);
+        Coordinates[TypeOfDataOut].push_back(Data[2][I]);
+        JData[L"List"].push_back(Coordinates);
+    }
+    std::filesystem::path Output =  OutPath/std::wstring(OutputName+L".json");
+    std::wofstream OutStream (Output);
+    OutStream << JData;
+    OutStream.close();
+}
+
+void WriteData (const jsoncons::wojson& JData, const std::filesystem::path& OutPath, 
+    const std::wstring& OutputName, const int FileNumber) {
     //Save Data
     std::wstring Number;
     {
@@ -112,9 +150,10 @@ int main(int Nargs, char** Args) {
         //Process instructions
 		jsoncons::wojson Instructions;
         Instructions = jsoncons::wojson::parse(Input);
-        const std::vector<int> TaskList = Instructions[L"TaskList"].as<std::vector<int>>();
+        const std::vector<unsigned int> TaskList = Instructions[L"TaskList"].as<std::vector<unsigned int>>();
         const std::filesystem::path InstructionsPath = Instructions[L"InstructionsPath"].as<std::wstring>();
         const std::vector<std::wstring> InstructionsFiles = Instructions[L"InstructionsFiles"].as<std::vector<std::wstring>>();
+        const bool Verbose = Instructions[L"Verbose"].as<bool>();
         if (TaskList.size() != InstructionsFiles.size()) {
             std::wcerr << L"Error: Number of tasks and instructions do not match."<<std::endl;
             return 2;
@@ -125,27 +164,68 @@ int main(int Nargs, char** Args) {
        			std::wstringstream Temp = FileManip::DataInput(InstructionsPath/InstructionsFiles[I]);
        			TaskInstructions = jsoncons::wojson::parse(Temp);
         	}
+            if (Verbose) {
+                Output << L"Read instructions "<<InstructionsPath.wstring()<<InstructionsFiles[I]<<L'\n';
+            }
         	const std::filesystem::path InputPath = TaskInstructions[L"InputPath"].as<std::wstring>();
     		std::vector<std::wstring> InputNames = TaskInstructions[L"InputNames"].as<std::vector<std::wstring>>();
         	const std::filesystem::path OutputPath = TaskInstructions[L"OutputPath"].as<std::wstring>();
         	const std::vector<std::wstring> OutputNames = TaskInstructions[L"OutputNames"].as<std::vector<std::wstring>>();
             const std::wstring TypeOfDataIn = TaskInstructions[L"TypeOfDataIn"].as<std::wstring>();
     		const std::wstring TypeOfDataOut = TaskInstructions[L"TypeOfDataOut"].as<std::wstring>();
-            const double Parameter = TaskInstructions[L"Parameter"].as<double>();
 	        if (InputNames.size() != OutputNames.size()) {
 	            std::wcerr << L"Error: Number of input and output names do not match."<<std::endl;
 	            return 2;
 	        }
+            if (TaskList[I] == HISTOGRAMS and  (TaskInstructions[L"ArrayOfIntParameters"].size() != InputNames.size())) {
+                std::wcerr << L"Error: Number of Bins do not match with number of files."<<std::endl;
+                return 2;
+            }
             for (unsigned long int J = 0; J != InputNames.size(); ++J) {
                 std::sort(InputNames.begin(), InputNames.end());
-            //std::wcerr << InputNames[0]<<std::endl;
                 std::vector<std::filesystem::path> WorkingFiles = Explore::ExploreDirectoryByName(InputNames[J], InputPath);
+                std::sort(WorkingFiles.begin(), WorkingFiles.end());
                 for (unsigned long int K = 0; K != WorkingFiles.size(); ++K) {
-                    std::sort(WorkingFiles.begin(), WorkingFiles.end());
-            //std::wcerr << WorkingFiles[0]<<std::endl;
-                    DataContainer Data = ReadData (InputPath/WorkingFiles[K], TypeOfDataIn);
-                    auto NewData = std::visit(TaskLauncher{Data, Parameter}, Tasks[TaskList[I]]);
-                    WriteData(NewData, OutputPath, OutputNames[J], TypeOfDataOut, K);
+                    DataContainer Data;
+                    DataContainer ProcessedData;
+                    jsoncons::wojson ProcessedJData;
+                    //Each I is associated with one and only one function.
+                    switch (TaskList[I]) {
+                        case DATATOJSON:
+                            ProcessedJData = DataToJson(InputPath/WorkingFiles[K]);
+                            WriteData(ProcessedJData, OutputPath, OutputNames[J], K);
+                            break;
+                        case CARTTOSPH:                      
+                            Data = ReadData (InputPath/WorkingFiles[K], TypeOfDataIn);
+                            ProcessedData = CartesianToSpherical(Data);
+                            WriteData(ProcessedData, OutputPath, OutputNames[J], TypeOfDataOut, K);
+                            break;
+                        case VARONDELTAT:
+                            Data = ReadData (InputPath/WorkingFiles[K], TypeOfDataIn);
+                            ProcessedData = VariationsOnDeltaT (Data, TaskInstructions[L"DoubleParameter"].as<double>());
+                            WriteData(ProcessedData, OutputPath, OutputNames[J], TypeOfDataOut, K);
+                            break;
+                        case VARIATIONS:
+                            Data = ReadData (InputPath/WorkingFiles[K], TypeOfDataIn);
+                            ProcessedData = Variations (Data);
+                            WriteData(ProcessedData, OutputPath, OutputNames[J], TypeOfDataOut, K);
+                            break;
+                        case HISTOGRAMS:
+                            Data = ReadData (InputPath/WorkingFiles[K], TypeOfDataIn);
+                            ProcessedJData = Histograms (Data, TaskInstructions[L"ArrayOfIntParameters"][J].as<size_t>());
+                            WriteData(ProcessedJData, OutputPath, OutputNames[J], K);
+                            break;
+                        case JOINFILES:
+                            Data = MassReadData (InputPath, WorkingFiles, TypeOfDataIn);
+                            WriteData (Data, OutputPath, OutputNames[J], TypeOfDataOut);
+                            //Questa è una porcata ma uso molto più spesso le altre funzioni
+                            //quindi conviene tenerla qui dentro
+                            K = WorkingFiles.size()-1;
+                            break;
+                        default:
+                            std::wcerr << L"Invalid function ID selected."<<std::endl;
+                            return 3;
+                    }
 			    }
 		    }
        	}

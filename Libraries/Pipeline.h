@@ -13,11 +13,11 @@
 namespace Pipeline {
 	//If arguments are good returns a cleaned version of them
 	//First one is input, second one is output
-	std::array <std::wstring, 2> CheckArguments (const std::wstring Arg1, const std::wstring Arg2);
+	extern std::array <std::wstring, 2> CheckArguments (const std::wstring Arg1, const std::wstring Arg2);
 	//If argument is good for selected mode returns a cleaned version of it
 	//True = Input
 	//False = Output
-	std::wstring CheckArgument (const std::wstring Arg, bool Mode);
+	extern std::wstring CheckArgument (const std::wstring Arg, bool Mode);
 
 	extern std::unique_ptr<std::wistream> PipeInput;
 	extern std::unique_ptr<std::wostream> PipeOutput;
@@ -30,6 +30,6 @@ namespace Pipeline {
 	//-2 = Bad Output
 	//-3 = Invalid number of arguments
 	// -4 = Unforseen error
-	int MakePipe (const std::vector<std::wstring> & Args);
+	extern int MakePipe (const std::vector<std::wstring> & Args);
 }
 #endif
