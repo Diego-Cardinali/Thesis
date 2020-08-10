@@ -19,7 +19,7 @@ The main executable requires a .json file as instructions, that needs to be pass
 	"Verbose" : true
 }
 ```
-}
+
 The parameters are:
 * **TaskList**: An array of integers that represent the order of the tasks that need to be executed. For further explanation on what each function does please refer to the *Units* section. The same task can be repeated an arbitrary number of times by writing the same number more than once, provided the instructions are given correctly. At the moment the available functions are: <br/>
   &nbsp; &nbsp; 0\. DataToJson;<br/>
@@ -40,6 +40,7 @@ The instructions for the tasks are all formatted the same, with each task having
 * **OutputNames**: An array of strings that will progressively be matched with the elements of *InputNames* to name the output files accordingly. *NOTE: if the number of elements in this array and InputNames differs the execution of the program will stop.*
 * **TypeOfDataIn**: A string containing the exact type of data that the program will search for in the .json input files.
 * **TypeOfDataOut**: A string containing the exact type of data that will be written in the .json output files.
+
 In addition to these some tasks require additional parameters:
 * **DoubleParameter**: A floating-point number that will be used by the task. Referring to the numbering in the previous subsection, the tasks needing this parameter are: *VariationsOnDeltaT*.
 * **ArrayOfIntParameters**: An array of integers that will be associated with each of the groups of files in the *InputNames* array. *NOTE: If the number of elements in this array and InputNames differs the execution of the program will stop.*
@@ -51,7 +52,7 @@ The Main file is mostly a wrapper for the various functions that are described i
 The tasks are functions to process data. Here follows a list:
 0. **DataToJson**: This functions reads data from .txt files formatted specifically in four columns and outputs .json files with *TypeOfDataOut* set as *Coordinates*. The first column is ignored and the other three are interpreted as *x*, *y* and *z* cartesian coordinates for the position of a point in 3D space. The parameters *TypeOfDataIn* and *TypeOfDataOut* can be left blank. *Extra instructions required: None.*
 1. **CartesianToSpherical**: This function converts cartesian coordinates in the form *(x,y,z)* to spherical 3D coordinates in the form *(a, i, r)*, where *a* is the inclination angle (in radians), *i* is the inclination angle (in radians) and *r* is the radius (in the same unit as the cartesian coordinates). *Extra instructions required: None.* *NOTE: Boost is required.*
-2. **VariationsOnDeltaT**: This function computes `(Data[I+1]-Data[I])/DeltaT` for each I and each set of data, i.e. it computes the average velocity along the corresponding axis. *Extra instructions required: DoubleParameter, used ad DeltaT.*
+2. **VariationsOnDeltaT**: This function computes `(Data[I+1]-Data[I])/DeltaT` for each I and each set of data, i.e. it computes the average velocity along the corresponding axis. *Extra instructions required: DoubleParameter, used as DeltaT.*
 3. **Variations**: This function works exactly as **2** but without the time variation. *Extra instructions required: None.*
 4. **Histograms**: Coming soon.
 5. **JoinFiles**: This function doesn't work on a single file at a time, instead it reads all the files that match the corresponding element of *InputNames* and then produces a single file with all the data concatenated. The data must be all of the same *TypeOfDataIn*. *Extra instructions required: None.*
