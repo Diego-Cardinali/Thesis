@@ -4,6 +4,9 @@ The code will mostly be divided into two parts:
 + C++ for computation;
 + Python for plotting.
 
+## Prerequisites
+The C++ code requires boost (at least version 1.65.1.0) and the *jsoncons* library, that can be obtained [here](https://github.com/danielaparker/jsoncons). It is also required to compile using the c++17 standard.
+
 ## C++
 The C++ part of the project is made up of a few small libraries, a main file with its units and is compiled with CMake. This section will give a quick tour of the features of the code as well as the structure for the instructions required by the program. 
 
