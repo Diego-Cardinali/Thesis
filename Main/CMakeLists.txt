@@ -20,6 +20,10 @@ set(SOURCE_FILES  "Main.cpp"
 	"Variations.cpp"
 	"Histogram.h"
 	"Histogram.cpp"
+	"MixData.h"
+	"MixData.cpp"
+	"DivideData.h"
+	"DivideData.cpp"
 	)
 
 find_package(Boost 1.65 QUIET REQUIRED COMPONENTS system filesystem)
@@ -34,7 +38,7 @@ if(NOT CMAKE_BUILD_TYPE)
 	set(CMAKE_BUILD_TYPE Release)
 endif()
 
-set(CMAKE_CXX_FLAGS "-Wall -Wextra -fdiagnostics-color=always")
+set(CMAKE_CXX_FLAGS "-W -Wall -Wextra -Wpedantic -fdiagnostics-color=always")
 set(CMAKE_CXX_FLAGS_DEBUG "-O0 -g")
 set(CMAKE_CXX_FLAGS_RELEASE "-O3")
 set(EXECUTABLE_OUTPUT_PATH ./../Executables)

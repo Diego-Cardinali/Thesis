@@ -13,10 +13,12 @@
 #include "CartesianToSpherical.h"
 #include "Variations.h"
 #include "Histogram.h"
+#include "MixData.h"
+#include "DivideData.h"
 
-#include "../Libraries/Pipeline.h"
-#include "../Libraries/FileManip.h"
-#include "../Libraries/ExploreDirectory.h"  //requires Boost
+#include "Pipeline.h"
+#include "FileManip.h"
+#include "ExploreDirectory.h"  //requires Boost
 
 #define DATATOJSON   0u
 #define CARTTOSPH    1u
@@ -24,6 +26,8 @@
 #define VARIATIONS   3u
 #define HISTOGRAMS   4u
 #define JOINFILES    5u
+#define MIXDATA      6u
+#define DIVIDEDATA   7u
 
 using DataContainer = std::array<std::vector<double>, 3>;
 
@@ -169,7 +173,8 @@ int main(int Nargs, char** Args) {
             }
         	const std::filesystem::path InputPath = TaskInstructions[L"InputPath"].as<std::wstring>();
     		std::vector<std::wstring> InputNames = TaskInstructions[L"InputNames"].as<std::vector<std::wstring>>();
-        	const std::filesystem::path OutputPath = TaskInstructions[L"OutputPath"].as<std::wstring>();
+            std::sort(InputNames.begin(), InputNames.end());
+            const std::filesystem::path OutputPath = TaskInstructions[L"OutputPath"].as<std::wstring>();
         	const std::vector<std::wstring> OutputNames = TaskInstructions[L"OutputNames"].as<std::vector<std::wstring>>();
             const std::wstring TypeOfDataIn = TaskInstructions[L"TypeOfDataIn"].as<std::wstring>();
     		const std::wstring TypeOfDataOut = TaskInstructions[L"TypeOfDataOut"].as<std::wstring>();
@@ -177,58 +182,90 @@ int main(int Nargs, char** Args) {
 	            std::wcerr << L"Error: Number of input and output names do not match."<<std::endl;
 	            return 2;
 	        }
-            if (TaskList[I] == HISTOGRAMS and  (TaskInstructions[L"ArrayOfIntParameters"].size() != InputNames.size())) {
-                std::wcerr << L"Error: Number of Bins do not match with number of files."<<std::endl;
-                return 2;
-            }
             for (unsigned long int J = 0; J != InputNames.size(); ++J) {
-                std::sort(InputNames.begin(), InputNames.end());
                 std::vector<std::filesystem::path> WorkingFiles = Explore::ExploreDirectoryByName(InputNames[J], InputPath);
                 std::sort(WorkingFiles.begin(), WorkingFiles.end());
-                for (unsigned long int K = 0; K != WorkingFiles.size(); ++K) {
-                    DataContainer Data;
-                    DataContainer ProcessedData;
-                    jsoncons::wojson ProcessedJData;
-                    //Each I is associated with one and only one function.
-                    switch (TaskList[I]) {
-                        case DATATOJSON:
-                            ProcessedJData = DataToJson(InputPath/WorkingFiles[K]);
-                            WriteData(ProcessedJData, OutputPath, OutputNames[J], K);
-                            break;
-                        case CARTTOSPH:                      
-                            Data = ReadData (InputPath/WorkingFiles[K], TypeOfDataIn);
-                            ProcessedData = CartesianToSpherical(Data);
-                            WriteData(ProcessedData, OutputPath, OutputNames[J], TypeOfDataOut, K);
-                            break;
-                        case VARONDELTAT:
-                            Data = ReadData (InputPath/WorkingFiles[K], TypeOfDataIn);
-                            ProcessedData = VariationsOnDeltaT (Data, TaskInstructions[L"DoubleParameter"].as<double>());
-                            WriteData(ProcessedData, OutputPath, OutputNames[J], TypeOfDataOut, K);
-                            break;
-                        case VARIATIONS:
-                            Data = ReadData (InputPath/WorkingFiles[K], TypeOfDataIn);
-                            ProcessedData = Variations (Data);
-                            WriteData(ProcessedData, OutputPath, OutputNames[J], TypeOfDataOut, K);
-                            break;
-                        case HISTOGRAMS:
-                            Data = ReadData (InputPath/WorkingFiles[K], TypeOfDataIn);
-                            ProcessedJData = Histograms (Data, TaskInstructions[L"ArrayOfIntParameters"][J].as<size_t>());
-                            WriteData(ProcessedJData, OutputPath, OutputNames[J], K);
-                            break;
-                        case JOINFILES:
-                            Data = MassReadData (InputPath, WorkingFiles, TypeOfDataIn);
-                            WriteData (Data, OutputPath, OutputNames[J], TypeOfDataOut);
-                            //Questa è una porcata ma uso molto più spesso le altre funzioni
-                            //quindi conviene tenerla qui dentro
-                            K = WorkingFiles.size()-1;
-                            break;
-                        default:
-                            std::wcerr << L"Invalid function ID selected."<<std::endl;
-                            return 3;
+                std::vector<std::filesystem::path> ExtraWorkingFiles = (TaskInstructions.contains(L"ExtraInputNames") and TaskInstructions.contains(L"ExtraInputPath")) ? Explore::ExploreDirectoryByName(TaskInstructions[L"ExtraInputNames"][J].as<std::wstring>(), TaskInstructions[L"ExtraInputPath"].as<std::wstring>()) : std::vector<std::filesystem::path>();
+                std::sort(ExtraWorkingFiles.begin(), ExtraWorkingFiles.end());
+                //Each I is associated with one and only one function.
+                if (TaskList[I] == DATATOJSON) {
+                    for (unsigned long int K = 0; K != WorkingFiles.size(); ++K) {
+                        jsoncons::wojson ProcessedJData = DataToJson(InputPath/WorkingFiles[K]);
+                        WriteData(ProcessedJData, OutputPath, OutputNames[J], K);
                     }
-			    }
-		    }
-       	}
+                }
+                else if (TaskList[I] == CARTTOSPH) {
+                    for (unsigned long int K = 0; K != WorkingFiles.size(); ++K) {
+                        DataContainer Data = ReadData(InputPath/WorkingFiles[K], TypeOfDataIn);
+                        DataContainer ProcessedData = CartesianToSpherical(Data);
+                        WriteData(ProcessedData, OutputPath, OutputNames[J], TypeOfDataOut, K);
+                    }
+                }
+                else if (TaskList[I] == VARONDELTAT) {
+                    for (unsigned long int K = 0; K != WorkingFiles.size(); ++K) {
+                        DataContainer Data = ReadData(InputPath/WorkingFiles[K], TypeOfDataIn);
+                        DataContainer ProcessedData = VariationsOnDeltaT(Data, TaskInstructions[L"DoubleParameter"].as<double>());
+                        WriteData(ProcessedData, OutputPath, OutputNames[J], TypeOfDataOut, K);
+                    }
+                }
+                else if (TaskList[I] == VARIATIONS) {
+                    for (unsigned long int K = 0; K != WorkingFiles.size(); ++K) {
+                        DataContainer Data = ReadData(InputPath/WorkingFiles[K], TypeOfDataIn);
+                        DataContainer ProcessedData = Variations(Data);
+                        WriteData(ProcessedData, OutputPath, OutputNames[J], TypeOfDataOut, K);
+                    }
+                }
+                else if (TaskList[I] == HISTOGRAMS) {
+                    if (TaskInstructions[L"ArrayOfIntParameters"].size() != InputNames.size()) {
+                        std::wcerr << L"Error: Number of Bins do not match with number of files." << std::endl;
+                        return 2;
+                    }
+                    for (unsigned long int K = 0; K != WorkingFiles.size(); ++K) {
+                        DataContainer Data = ReadData(InputPath/WorkingFiles[K], TypeOfDataIn);
+                        jsoncons::wojson ProcessedJData = Histograms (Data, TaskInstructions[L"ArrayOfIntParameters"][J].as<size_t>());
+                        WriteData(ProcessedJData, OutputPath, OutputNames[J], K);
+                    }
+                }
+                else if (TaskList[I] == JOINFILES) {
+                    DataContainer Data = MassReadData(InputPath, WorkingFiles, TypeOfDataIn);
+                    WriteData (Data, OutputPath, OutputNames[J], TypeOfDataOut);
+                }
+                else if (TaskList[I] == MIXDATA) {
+                    if (TaskInstructions[L"ExtraInputNames"].size() != InputNames.size()) {
+                        std::wcerr << L"Error: Number of files to mix do not match." << std::endl;
+                        return 2;
+                    }
+                    for (unsigned long int K = 0; K != WorkingFiles.size(); ++K) {
+                        DataContainer DataA = ReadData(InputPath/WorkingFiles[K], TypeOfDataIn);
+                        DataContainer DataB = ReadData(TaskInstructions[L"ExtraInputPath"].as<std::wstring>()/ExtraWorkingFiles[K], TaskInstructions[L"ExtraTypeOfDataIn"].as<std::wstring>());
+                        //If true take data from DataA, if false from DataB
+                        auto ColumnZero = TaskInstructions[L"ArrayOfBoolParameters"][0].as<bool>() ? &DataA[0] : &DataB[0];
+                        auto ColumnOne  = TaskInstructions[L"ArrayOfBoolParameters"][1].as<bool>() ? &DataA[1] : &DataB[1];
+                        auto ColumnTwo  = TaskInstructions[L"ArrayOfBoolParameters"][2].as<bool>() ? &DataA[2] : &DataB[2];
+                        DataContainer ProcessedData = MixData(*ColumnZero, *ColumnOne, *ColumnTwo);
+                        WriteData (ProcessedData, OutputPath, OutputNames[J], TypeOfDataOut, K);
+                    }
+                }
+                else if (TaskList[I] == DIVIDEDATA) {
+                    if (TaskInstructions[L"ArrayOfDoubleParameters"].size() != InputNames.size()) {
+                        std::wcerr << L"Error: Number of parameters and number of inputs do not match." << std::endl;
+                        return 2;
+                    }
+                    for (unsigned long int K = 0; K != WorkingFiles.size(); ++K) {
+                        DataContainer DataA = ReadData(InputPath/WorkingFiles[K], TypeOfDataIn);
+                        auto DataB = DivideData(DataA, TaskInstructions[L"ArrayOfDoubleParameters"][K].as<double>(), TaskInstructions[L"IntParameter"].as<int>());
+                        std::wstring NameA = OutputNames[J]+L"_Geq_"+std::to_wstring(TaskInstructions[L"ArrayOfDoubleParameters"][K].as<double>());
+                        std::wstring NameB = OutputNames[J]+L"_L_"+std::to_wstring(TaskInstructions[L"ArrayOfDoubleParameters"][K].as<double>());
+                        WriteData(DataA, OutputPath, NameA, TypeOfDataOut, K);
+                        WriteData(DataB, OutputPath, NameB, TypeOfDataOut, K);
+                    }
+                }
+                 else {
+                    std::wcerr << L"Invalid function ID selected."<<std::endl;
+                    return 3;
+                }
+            }
+		}
     }
 	return 0;
 }
