@@ -253,14 +253,17 @@ int main(int Nargs, char** Args) {
                     }
                     for (unsigned long int K = 0; K != WorkingFiles.size(); ++K) {
                         DataContainer DataA = ReadData(InputPath/WorkingFiles[K], TypeOfDataIn);
-                        auto DataB = DivideData(DataA, TaskInstructions[L"ArrayOfDoubleParameters"][K].as<double>(), TaskInstructions[L"IntParameter"].as<int>());
-                        std::wstring NameA = OutputNames[J]+L"_Geq_"+std::to_wstring(TaskInstructions[L"ArrayOfDoubleParameters"][K].as<double>());
-                        std::wstring NameB = OutputNames[J]+L"_L_"+std::to_wstring(TaskInstructions[L"ArrayOfDoubleParameters"][K].as<double>());
+                        auto DataB = DivideData(DataA, TaskInstructions[L"ArrayOfDoubleParameters"][J].as<double>(), TaskInstructions[L"IntParameter"].as<int>());
+                        std::wstring NameA = OutputNames[J]+L"_Geq_"+std::to_wstring(TaskInstructions[L"ArrayOfDoubleParameters"][J].as<double>());
+                        std::wstring NameB = OutputNames[J]+L"_L_"+std::to_wstring(TaskInstructions[L"ArrayOfDoubleParameters"][J].as<double>());
                         WriteData(DataA, OutputPath, NameA, TypeOfDataOut, K);
                         WriteData(DataB, OutputPath, NameB, TypeOfDataOut, K);
+                        if (Verbose) {
+                            Output << L"\tNumber of elements in Geq: "<< DataA[0].size()<< L"\n\tNumber of elements in L: "<<DataB[0].size()<<L'\n';
+                        }
                     }
                 }
-                 else {
+                else {
                     std::wcerr << L"Invalid function ID selected."<<std::endl;
                     return 3;
                 }

@@ -74,7 +74,7 @@ jsoncons::wojson Histograms (const std::array<std::vector<double>, 3>& Data, con
         ProcessedData.insert_or_assign(XYZ[I], jsoncons::json_object_arg);
         ProcessedData.insert_or_assign(L"NBins", NBins);
         ProcessedData[XYZ[I]].insert_or_assign(L"Min", std::begin(Histogram)->first);
-        ProcessedData[XYZ[I]].insert_or_assign(L"Max",  std::rbegin(Histogram)->first);
+        ProcessedData[XYZ[I]].insert_or_assign(L"Max", std::rbegin(Histogram)->first);
         Bins = MakeBins(Histogram, NBins);
         Probabilities = MakeProbabilities(Bins);
         ProcessedData[XYZ[I]].insert_or_assign(L"FrequencyHistogram", jsoncons::json_array_arg);

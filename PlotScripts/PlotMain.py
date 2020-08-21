@@ -25,11 +25,12 @@ def NoFiles(FileList):
 
 
 Parser = argparse.ArgumentParser(description = "Plot the files in the given Directory that match the given Key.")
-Parser.add_argument("Mode", type = int, choices=range(0, 2), metavar = "-M", action = "store", help = "Switch between various plot functions: (0) PlotAngularVariations; (1) PlotVelModule.")
-Parser.add_argument("Directory", type = str, metavar = "-D", action = "store", help = "Path to the directory containing the files to plot.")
+Parser.add_argument("Mode", metavar = "-M", type = int, choices = range(0, 2), action = "store", help = "Switch between various plot functions: (0) PlotAngularVariations; (1) PlotVelModule.")
+Parser.add_argument("Directory", metavar= "-D", type = str, action = "store", help = "Path to the directory containing the files to plot.")
 Parser.add_argument("Keys", metavar = "-K", nargs = "+", help = "A list of keys. All files in the folder containing a Key in the name will be plotted. If a file contains two or more keys it will be plotted more than once.")
-Parser.add_argument("--Clean", "--C", "--c", type = StrToBool, metavar = "--C", const = False, default = False, nargs = "?", help = "If true the X Axis will be restricted to relevant data, if false all data will be displayed.")
-Parser.add_argument("--SavePath", "--S", "--s", type = str, metavar = "--S", help = "Path to the directory where the graphs will be saved. If no path is provided (or if the path is invalid) all graphs will be saved in the directory containing the files to plot.")
+Parser.add_argument("-c", "--Clean", action = "store_true", help = "If given the X Axis will be restricted to relevant data, if false all data will be plotted.")
+Parser.add_argument("-d", "--Display", action = "store_true", help = "If given the data will be displayed, otherwise it will be saved.")
+Parser.add_argument("-s", "--Savepath", action = "store", type = str, help = "Path to the directory where the graphs will be saved. If no path is provided (or if the path is invalid) all graphs will be saved in the directory containing the files to plot.")
 Args = Parser.parse_args()
 
 if not os.path.isdir(Args.Directory):
@@ -49,4 +50,4 @@ Modes = {
     1 : PlotVelocityModule
 }
 
-Modes[Args.Mode](AllFiles, Args.Clean, Args.Directory if Args.SavePath is None or not os.path.isdir(Args.SavePath) else Args.SavePath)
+Modes[Args.Mode](AllFiles, Args.Clean, Args.Display, Args.Directory if Args.Savepath is None or not os.path.isdir(Args.Savepath) else Args.Savepath)
