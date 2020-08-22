@@ -20,14 +20,15 @@
 #include "FileManip.h"
 #include "ExploreDirectory.h"  //requires Boost
 
-#define DATATOJSON   0u
-#define CARTTOSPH    1u
-#define VARONDELTAT  2u
-#define VARIATIONS   3u
-#define HISTOGRAMS   4u
-#define JOINFILES    5u
-#define MIXDATA      6u
-#define DIVIDEDATA   7u
+#define DATATOJSON    0u
+#define CARTTOSPH     1u
+#define VARONDELTAT   2u
+#define VARIATIONS    3u
+#define HISTOGRAMS    4u
+#define JOINFILES     5u
+#define MIXDATA       6u
+#define DIVIDEDATA    7u
+#define REDUCEINRANGE 8u
 
 using DataContainer = std::array<std::vector<double>, 3>;
 
@@ -136,6 +137,8 @@ void WriteData (const jsoncons::wojson& JData, const std::filesystem::path& OutP
     OutStream.close();
 }
 
+template <typename T> class TD;
+
 int main(int Nargs, char** Args) {
 	std::vector<std::wstring> IOArgs;
     if (Nargs > 1) {
@@ -173,7 +176,6 @@ int main(int Nargs, char** Args) {
             }
         	const std::filesystem::path InputPath = TaskInstructions[L"InputPath"].as<std::wstring>();
     		std::vector<std::wstring> InputNames = TaskInstructions[L"InputNames"].as<std::vector<std::wstring>>();
-            std::sort(InputNames.begin(), InputNames.end());
             const std::filesystem::path OutputPath = TaskInstructions[L"OutputPath"].as<std::wstring>();
         	const std::vector<std::wstring> OutputNames = TaskInstructions[L"OutputNames"].as<std::vector<std::wstring>>();
             const std::wstring TypeOfDataIn = TaskInstructions[L"TypeOfDataIn"].as<std::wstring>();
@@ -253,13 +255,36 @@ int main(int Nargs, char** Args) {
                     }
                     for (unsigned long int K = 0; K != WorkingFiles.size(); ++K) {
                         DataContainer DataA = ReadData(InputPath/WorkingFiles[K], TypeOfDataIn);
+                        if (Verbose) {
+                            Output << L"For file "<<WorkingFiles[K]<<L":\n\tTotal number of elements: "<<DataA[0].size()<<L'\n';
+                        }
                         auto DataB = DivideData(DataA, TaskInstructions[L"ArrayOfDoubleParameters"][J].as<double>(), TaskInstructions[L"IntParameter"].as<int>());
                         std::wstring NameA = OutputNames[J]+L"_Geq_"+std::to_wstring(TaskInstructions[L"ArrayOfDoubleParameters"][J].as<double>());
                         std::wstring NameB = OutputNames[J]+L"_L_"+std::to_wstring(TaskInstructions[L"ArrayOfDoubleParameters"][J].as<double>());
                         WriteData(DataA, OutputPath, NameA, TypeOfDataOut, K);
                         WriteData(DataB, OutputPath, NameB, TypeOfDataOut, K);
                         if (Verbose) {
-                            Output << L"\tNumber of elements in Geq: "<< DataA[0].size()<< L"\n\tNumber of elements in L: "<<DataB[0].size()<<L'\n';
+                            Output <<L"\tNumber of elements in Geq: "<< DataA[0].size()<< L"\n\tNumber of elements in L: "<<DataB[0].size()<<L'\n';
+                        }
+                    }
+                }
+                else if (TaskList[I] == REDUCEINRANGE) {
+                    if (TaskInstructions[L"ArrayOfArraysOfDoubleParameters"].size() != InputNames.size()) {
+                        std::wcerr << L"Error: Number of parameters and number of inputs do not match." << std::endl;
+                        return 2;
+                    }
+                    for (unsigned long int K = 0; K != WorkingFiles.size(); ++K) {
+                        DataContainer Data = ReadData(InputPath/WorkingFiles[K], TypeOfDataIn);
+                        if (Verbose) {
+                            Output << L"For file "<<WorkingFiles[K]<<L":\n\tTotal number of elements: "<<Data[0].size()<<L'\n';
+                        }
+                        std::array<double, 2> Parameters = TaskInstructions[L"ArrayOfArraysOfDoubleParameters"][J].as<std::array<double, 2>>();
+                        //TD<decltype (Data)> Ciao;
+                        //TD<decltype (Parameters)> Ciao;
+                        auto ReducedData = ReduceInRange(Data, Parameters, TaskInstructions[L"IntParameter"].as<int>());
+                        WriteData(ReducedData, OutputPath, OutputNames[K], TypeOfDataOut, K);
+                        if (Verbose) {
+                            Output <<L"\tNumber of elements after reduction: "<< ReducedData[0].size() <<L'\n';
                         }
                     }
                 }
