@@ -15,6 +15,7 @@
 #include "Histogram.h"
 #include "MixData.h"
 #include "DivideData.h"
+#include "TrackLength.h"
 
 #include "Pipeline.h"
 #include "FileManip.h"
@@ -25,10 +26,12 @@
 #define VARONDELTAT   2u
 #define VARIATIONS    3u
 #define HISTOGRAMS    4u
-#define JOINFILES     5u
+#define JOINFILES3D   5u
 #define MIXDATA       6u
 #define DIVIDEDATA    7u
 #define REDUCEINRANGE 8u
+#define TRACKLENGTH   9u
+#define JOINFILES1D  10u
 
 using DataContainer = std::array<std::vector<double>, 3>;
 
@@ -75,6 +78,43 @@ DataContainer MassReadData (const std::filesystem::path& InPath,
         DataToMerge[I][1].clear();
         MergedData[2].insert(MergedData[2].end(), DataToMerge[I][2].begin(), DataToMerge[I][2].end());
         DataToMerge[I][2].clear();
+    }
+    return MergedData;
+}
+
+std::vector<size_t> ReadData1D (const std::filesystem::path& InFile, const std::wstring& TypeOfDataIn) {
+    std::vector <size_t> Data;
+    jsoncons::wojson JData;
+    {
+        std::wstringstream Temp = FileManip::DataInput(InFile);
+        JData = jsoncons::wojson::parse(Temp);
+    }
+    Data.reserve(JData[TypeOfDataIn].size());
+    for (const auto Datum : JData[TypeOfDataIn].array_range()) {
+        Data.push_back(Datum.as<size_t>());
+    }
+	return Data;
+}
+
+std::vector<size_t> MassReadData1D (const std::filesystem::path& InPath, 
+    const std::vector<std::filesystem::path>& InFiles, const std::wstring& TypeOfDataIn) {
+    std::vector<size_t> MergedData;
+    std::vector<std::vector<size_t>> DataToMerge;
+    DataToMerge.reserve(InFiles.size());
+    for (const auto & InFile: InFiles) {
+        DataToMerge.push_back(ReadData1D(InPath/InFile, TypeOfDataIn));
+	}
+    size_t Size = InFiles.size(); //Worst case possible
+    for (const auto & Datum : DataToMerge) {
+        Size+=Datum.size();
+    }
+    MergedData.reserve(Size);
+    for (unsigned long int I = 0; I != DataToMerge.size(); ++I) {
+        MergedData.insert(MergedData.end(), DataToMerge[I].begin(), DataToMerge[I].end());
+        if (MergedData.size()%2) {
+            MergedData.push_back(0);
+        }
+        DataToMerge[I].clear();
     }
     return MergedData;
 }
@@ -137,7 +177,38 @@ void WriteData (const jsoncons::wojson& JData, const std::filesystem::path& OutP
     OutStream.close();
 }
 
-template <typename T> class TD;
+void WriteData (const std::vector<size_t>& Data, const std::filesystem::path& OutPath, 
+    const std::wstring& OutputName, const std::wstring& TypeOfDataOut, const int FileNumber) {
+    jsoncons::wojson JData;
+    JData.insert_or_assign(TypeOfDataOut, jsoncons::json_array_arg);
+    for (const auto & Datum : Data) {
+        JData[TypeOfDataOut].push_back(Datum);
+    }
+    //Save Data
+    std::wstring Number;
+    {
+        std::wstringstream Temp;
+        Temp << std::setw(3) << std::setfill(L'0') << FileNumber+1;
+        Number = Temp.str();
+    }
+    std::filesystem::path Output =  OutPath/std::wstring(OutputName+L"_"+Number+L".json");
+    std::wofstream OutStream (Output);
+    OutStream << JData;
+    OutStream.close();
+}
+
+void WriteData (const std::vector<size_t>& Data, const std::filesystem::path& OutPath, 
+    const std::wstring& OutputName, const std::wstring& TypeOfDataOut) {
+    jsoncons::wojson JData;
+    JData.insert_or_assign(TypeOfDataOut, jsoncons::json_array_arg);
+    for (const auto & Datum : Data) {
+        JData[TypeOfDataOut].push_back(Datum);
+    }
+    std::filesystem::path Output =  OutPath/std::wstring(OutputName+L".json");
+    std::wofstream OutStream (Output);
+    OutStream << JData;
+    OutStream.close();
+}
 
 int main(int Nargs, char** Args) {
 	std::vector<std::wstring> IOArgs;
@@ -175,7 +246,7 @@ int main(int Nargs, char** Args) {
                 Output << L"Read instructions "<<InstructionsPath.wstring()<<InstructionsFiles[I]<<L'\n';
             }
         	const std::filesystem::path InputPath = TaskInstructions[L"InputPath"].as<std::wstring>();
-    		std::vector<std::wstring> InputNames = TaskInstructions[L"InputNames"].as<std::vector<std::wstring>>();
+    		const std::vector<std::wstring> InputNames = TaskInstructions[L"InputNames"].as<std::vector<std::wstring>>();
             const std::filesystem::path OutputPath = TaskInstructions[L"OutputPath"].as<std::wstring>();
         	const std::vector<std::wstring> OutputNames = TaskInstructions[L"OutputNames"].as<std::vector<std::wstring>>();
             const std::wstring TypeOfDataIn = TaskInstructions[L"TypeOfDataIn"].as<std::wstring>();
@@ -224,11 +295,11 @@ int main(int Nargs, char** Args) {
                     }
                     for (unsigned long int K = 0; K != WorkingFiles.size(); ++K) {
                         DataContainer Data = ReadData(InputPath/WorkingFiles[K], TypeOfDataIn);
-                        jsoncons::wojson ProcessedJData = Histograms (Data, TaskInstructions[L"ArrayOfIntParameters"][J].as<size_t>());
+                        jsoncons::wojson ProcessedJData = Histograms <double> (Data, TaskInstructions[L"ArrayOfIntParameters"][J].as<size_t>());
                         WriteData(ProcessedJData, OutputPath, OutputNames[J], K);
                     }
                 }
-                else if (TaskList[I] == JOINFILES) {
+                else if (TaskList[I] == JOINFILES3D) {
                     DataContainer Data = MassReadData(InputPath, WorkingFiles, TypeOfDataIn);
                     WriteData (Data, OutputPath, OutputNames[J], TypeOfDataOut);
                 }
@@ -279,14 +350,29 @@ int main(int Nargs, char** Args) {
                             Output << L"For file "<<WorkingFiles[K]<<L":\n\tTotal number of elements: "<<Data[0].size()<<L'\n';
                         }
                         std::array<double, 2> Parameters = TaskInstructions[L"ArrayOfArraysOfDoubleParameters"][J].as<std::array<double, 2>>();
-                        //TD<decltype (Data)> Ciao;
-                        //TD<decltype (Parameters)> Ciao;
                         auto ReducedData = ReduceInRange(Data, Parameters, TaskInstructions[L"IntParameter"].as<int>());
-                        WriteData(ReducedData, OutputPath, OutputNames[K], TypeOfDataOut, K);
+                        WriteData(ReducedData, OutputPath, OutputNames[J], TypeOfDataOut, K);
                         if (Verbose) {
                             Output <<L"\tNumber of elements after reduction: "<< ReducedData[0].size() <<L'\n';
                         }
                     }
+                }
+                else if (TaskList[I] == TRACKLENGTH) {
+                    for (unsigned long int K = 0; K != WorkingFiles.size(); ++K) {
+                        DataContainer Data = ReadData(InputPath/WorkingFiles[K], TypeOfDataIn);
+                        std::vector<size_t> Tracks;
+                        TrackLength(
+                            std::begin(Data[TaskInstructions[L"IntParameter"].as<size_t>()]),
+                            std::end(Data[TaskInstructions[L"IntParameter"].as<size_t>()]),
+                            std::back_inserter(Tracks),
+                            TaskInstructions[L"ArrayOfDoubleParameters"][J].as<double>()
+                        );
+                        WriteData(Tracks, OutputPath, OutputNames[J], TypeOfDataOut, K);
+                    }
+                }
+                else if (TaskList[I] == JOINFILES1D) {
+                    std::vector<size_t> Data = MassReadData1D(InputPath, WorkingFiles, TypeOfDataIn);
+                    WriteData (Data, OutputPath, OutputNames[J], TypeOfDataOut);
                 }
                 else {
                     std::wcerr << L"Invalid function ID selected."<<std::endl;

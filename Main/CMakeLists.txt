@@ -19,11 +19,11 @@ set(SOURCE_FILES  "Main.cpp"
 	"Variations.h"
 	"Variations.cpp"
 	"Histogram.h"
-	"Histogram.cpp"
 	"MixData.h"
 	"MixData.cpp"
 	"DivideData.h"
 	"DivideData.cpp"
+	"TrackLength.h"
 	)
 
 find_package(Boost 1.65 QUIET REQUIRED COMPONENTS system filesystem)
