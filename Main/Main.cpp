@@ -16,22 +16,26 @@
 #include "MixData.h"
 #include "DivideData.h"
 #include "TrackLength.h"
+#include "RunningAverage.h"
+#include "Displacement.h"
 
 #include "Pipeline.h"
 #include "FileManip.h"
 #include "ExploreDirectory.h"  //requires Boost
 
-#define DATATOJSON    0u
-#define CARTTOSPH     1u
-#define VARONDELTAT   2u
-#define VARIATIONS    3u
-#define HISTOGRAMS    4u
-#define JOINFILES3D   5u
-#define MIXDATA       6u
-#define DIVIDEDATA    7u
-#define REDUCEINRANGE 8u
-#define TRACKLENGTH   9u
-#define JOINFILES1D  10u
+#define DATATOJSON      0u
+#define CARTTOSPH       1u
+#define VARONDELTAT     2u
+#define VARIATIONS      3u
+#define HISTOGRAMS      4u
+#define JOINFILES3D     5u
+#define MIXDATA         6u
+#define DIVIDEDATA      7u
+#define REDUCEINRANGE   8u
+#define TRACKLENGTH     9u
+#define JOINFILES1D    10u
+#define RUNNINGAVERAGE 11u
+#define DISPLACEMENT   12u
 
 using DataContainer = std::array<std::vector<double>, 3>;
 
@@ -177,7 +181,8 @@ void WriteData (const jsoncons::wojson& JData, const std::filesystem::path& OutP
     OutStream.close();
 }
 
-void WriteData (const std::vector<size_t>& Data, const std::filesystem::path& OutPath, 
+template <typename T>
+void WriteData (const std::vector<T>& Data, const std::filesystem::path& OutPath, 
     const std::wstring& OutputName, const std::wstring& TypeOfDataOut, const int FileNumber) {
     jsoncons::wojson JData;
     JData.insert_or_assign(TypeOfDataOut, jsoncons::json_array_arg);
@@ -197,7 +202,8 @@ void WriteData (const std::vector<size_t>& Data, const std::filesystem::path& Ou
     OutStream.close();
 }
 
-void WriteData (const std::vector<size_t>& Data, const std::filesystem::path& OutPath, 
+template <typename T>
+void WriteData (const std::vector<T>& Data, const std::filesystem::path& OutPath, 
     const std::wstring& OutputName, const std::wstring& TypeOfDataOut) {
     jsoncons::wojson JData;
     JData.insert_or_assign(TypeOfDataOut, jsoncons::json_array_arg);
@@ -365,7 +371,8 @@ int main(int Nargs, char** Args) {
                             std::begin(Data[TaskInstructions[L"IntParameter"].as<size_t>()]),
                             std::end(Data[TaskInstructions[L"IntParameter"].as<size_t>()]),
                             std::back_inserter(Tracks),
-                            TaskInstructions[L"ArrayOfDoubleParameters"][J].as<double>()
+                            TaskInstructions[L"ArrayOfDoubleParameters"][J].as<double>(),
+                            TaskInstructions[L"ExtraIntParameter"].as<size_t>()
                         );
                         WriteData(Tracks, OutputPath, OutputNames[J], TypeOfDataOut, K);
                     }
@@ -373,6 +380,14 @@ int main(int Nargs, char** Args) {
                 else if (TaskList[I] == JOINFILES1D) {
                     std::vector<size_t> Data = MassReadData1D(InputPath, WorkingFiles, TypeOfDataIn);
                     WriteData (Data, OutputPath, OutputNames[J], TypeOfDataOut);
+                }
+                else if (TaskList[I] == RUNNINGAVERAGE) {}
+                else if (TaskList[I] == DISPLACEMENT) {
+                    for (unsigned long int K = 0; K != WorkingFiles.size(); ++K) {
+                        DataContainer Data = ReadData(InputPath/WorkingFiles[K], TypeOfDataIn);
+                        auto Tracks = ComputeDisplacement (Data);
+                        WriteData(Tracks, OutputPath, OutputNames[J], TypeOfDataOut, K);
+                        }
                 }
                 else {
                     std::wcerr << L"Invalid function ID selected."<<std::endl;

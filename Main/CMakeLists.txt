@@ -2,28 +2,22 @@ cmake_minimum_required(VERSION 3.10)  # CMake version check
 project(CFurcatus)                    # Create project
 set(CMAKE_CXX_STANDARD 17)            # Enable c++17 standard
 set(CMAKE_CXX_COMPILER g++)           # Force g++
+set(CMAKE_VERBOSE_MAKEFILE ON)        # Verbose
 
 INCLUDE_DIRECTORIES(../Libraries/)
 
 set(SOURCE_FILES  "Main.cpp" 
-	"./../Libraries/Pipeline.h"
 	"./../Libraries/Pipeline.cpp" 
-	"./../Libraries/ExploreDirectory.h"
 	"./../Libraries/ExploreDirectory.cpp"
-	"./../Libraries/FileManip.h"
 	"./../Libraries/FileManip.cpp"
-	"DataToJson.h"
+	"./../Libraries/Utility.cpp"
 	"DataToJson.cpp"
-	"CartesianToSpherical.h"
 	"CartesianToSpherical.cpp"
-	"Variations.h"
 	"Variations.cpp"
-	"Histogram.h"
-	"MixData.h"
 	"MixData.cpp"
-	"DivideData.h"
 	"DivideData.cpp"
-	"TrackLength.h"
+	"RunningAverage.cpp"
+	"Displacement.cpp"
 	)
 
 find_package(Boost 1.65 QUIET REQUIRED COMPONENTS system filesystem)
