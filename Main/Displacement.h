@@ -3,9 +3,10 @@
 
 #include <vector>
 #include <array>
+#include <jsoncons/json.hpp>
 
 #include "../Libraries/Utility.h"
 
-extern std::vector<double> ComputeDisplacement (const std::array<std::vector<double>, 3> & Data);
+extern void ComputeDisplacement (jsoncons::wojson & Data);
 
 #endif

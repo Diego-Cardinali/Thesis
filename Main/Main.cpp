@@ -18,6 +18,7 @@
 #include "TrackLength.h"
 #include "RunningAverage.h"
 #include "Displacement.h"
+#include "DivideFastSlow.h"
 
 #include "Pipeline.h"
 #include "FileManip.h"
@@ -36,6 +37,7 @@
 #define JOINFILES1D    10u
 #define RUNNINGAVERAGE 11u
 #define DISPLACEMENT   12u
+#define DIVIDEFASTSLOW 13u
 
 using DataContainer = std::array<std::vector<double>, 3>;
 
@@ -384,11 +386,23 @@ int main(int Nargs, char** Args) {
                 else if (TaskList[I] == RUNNINGAVERAGE) {}
                 else if (TaskList[I] == DISPLACEMENT) {
                     for (unsigned long int K = 0; K != WorkingFiles.size(); ++K) {
-                        DataContainer Data = ReadData(InputPath/WorkingFiles[K], TypeOfDataIn);
-                        auto Tracks = ComputeDisplacement (Data);
-                        WriteData(Tracks, OutputPath, OutputNames[J], TypeOfDataOut, K);
+                        jsoncons::wojson JData;
+                        {
+                            std::wstringstream Temp = FileManip::DataInput(InputPath/WorkingFiles[K]);
+                            JData = jsoncons::wojson::parse(Temp);
+                        }
+                        ComputeDisplacement (JData);
+                        WriteData(JData, OutputPath, OutputNames[J], K);
                         }
                 }
+                else if (TaskList[I] == DIVIDEFASTSLOW) {
+                    for (unsigned long int K = 0; K != WorkingFiles.size(); ++K) {
+                        DataContainer Data = ReadData(InputPath/WorkingFiles[K], TypeOfDataIn);
+                        std::vector<size_t> Tracks = ReadData1D(TaskInstructions[L"ExtraInputPath"].as<std::wstring>()/ExtraWorkingFiles[K], TaskInstructions[L"ExtraTypeOfDataIn"].as<std::wstring>());
+                        auto JData = DivideFastSlow(Data, Tracks);
+                        WriteData(JData, OutputPath, OutputNames[J], K);
+                        }
+                    }
                 else {
                     std::wcerr << L"Invalid function ID selected."<<std::endl;
                     return 3;

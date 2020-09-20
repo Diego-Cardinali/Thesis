@@ -18,6 +18,7 @@ set(SOURCE_FILES  "Main.cpp"
 	"DivideData.cpp"
 	"RunningAverage.cpp"
 	"Displacement.cpp"
+	"DivideFastSlow.cpp"
 	)
 
 find_package(Boost 1.65 QUIET REQUIRED COMPONENTS system filesystem)
