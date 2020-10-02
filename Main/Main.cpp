@@ -24,20 +24,21 @@
 #include "FileManip.h"
 #include "ExploreDirectory.h"  //requires Boost
 
-#define DATATOJSON      0u
-#define CARTTOSPH       1u
-#define VARONDELTAT     2u
-#define VARIATIONS      3u
-#define HISTOGRAMS      4u
-#define JOINFILES3D     5u
-#define MIXDATA         6u
-#define DIVIDEDATA      7u
-#define REDUCEINRANGE   8u
-#define TRACKLENGTH     9u
-#define JOINFILES1D    10u
-#define RUNNINGAVERAGE 11u
-#define DISPLACEMENT   12u
-#define DIVIDEFASTSLOW 13u
+#define DATATOJSON         0u
+#define CARTTOSPH          1u
+#define VARONDELTAT        2u
+#define VARIATIONS         3u
+#define HISTOGRAMS         4u
+#define JOINFILES3D        5u
+#define MIXDATA            6u
+#define DIVIDEDATA         7u
+#define REDUCEINRANGE      8u
+#define TRACKLENGTH        9u
+#define JOINTRACKS        10u
+#define RUNNINGAVERAGE    11u
+#define DISPLACEMENT      12u
+#define DIVIDEFASTSLOW    13u
+#define JOINDISPLACEMENTS 14u
 
 using DataContainer = std::array<std::vector<double>, 3>;
 
@@ -122,6 +123,29 @@ std::vector<size_t> MassReadData1D (const std::filesystem::path& InPath,
         }
         DataToMerge[I].clear();
     }
+    return MergedData;
+}
+
+jsoncons::wojson MergeJsons (const std::filesystem::path& InPath, 
+    const std::vector<std::filesystem::path>& InFiles, const std::vector<std::wstring> & Keys) {
+    jsoncons::wojson MergedData;
+    for (const auto & Key : Keys) {
+        MergedData.insert_or_assign(Key, jsoncons::json_array_arg);
+    }
+    for (const auto & InFile: InFiles) {
+        jsoncons::wojson JData;
+        {
+            std::wstringstream Temp = FileManip::DataInput(InPath/InFile);
+            JData = jsoncons::wojson::parse(Temp);
+        }
+        for (const auto & Key : Keys) {
+            if (JData.contains(Key)) {
+                for (const auto & Datum: JData[Key].array_range()) {
+                    MergedData[Key].push_back(Datum);
+                }
+            }
+        }
+	}
     return MergedData;
 }
 
@@ -379,11 +403,13 @@ int main(int Nargs, char** Args) {
                         WriteData(Tracks, OutputPath, OutputNames[J], TypeOfDataOut, K);
                     }
                 }
-                else if (TaskList[I] == JOINFILES1D) {
+                else if (TaskList[I] == JOINTRACKS) {
                     std::vector<size_t> Data = MassReadData1D(InputPath, WorkingFiles, TypeOfDataIn);
                     WriteData (Data, OutputPath, OutputNames[J], TypeOfDataOut);
                 }
-                else if (TaskList[I] == RUNNINGAVERAGE) {}
+                else if (TaskList[I] == RUNNINGAVERAGE) {
+                    //Never used
+                }
                 else if (TaskList[I] == DISPLACEMENT) {
                     for (unsigned long int K = 0; K != WorkingFiles.size(); ++K) {
                         jsoncons::wojson JData;
@@ -397,12 +423,20 @@ int main(int Nargs, char** Args) {
                 }
                 else if (TaskList[I] == DIVIDEFASTSLOW) {
                     for (unsigned long int K = 0; K != WorkingFiles.size(); ++K) {
+                        if (Verbose) {
+                            Output << L"Working on " << WorkingFiles[K]<<L" - "<<ExtraWorkingFiles[K]<<L'\n';
+                        }
                         DataContainer Data = ReadData(InputPath/WorkingFiles[K], TypeOfDataIn);
                         std::vector<size_t> Tracks = ReadData1D(TaskInstructions[L"ExtraInputPath"].as<std::wstring>()/ExtraWorkingFiles[K], TaskInstructions[L"ExtraTypeOfDataIn"].as<std::wstring>());
                         auto JData = DivideFastSlow(Data, Tracks);
                         WriteData(JData, OutputPath, OutputNames[J], K);
-                        }
                     }
+                }
+                else if (TaskList[I] == JOINDISPLACEMENTS) {
+                    auto Keys = TaskInstructions[L"ArrayOfStringParameters"].as<std::vector<std::wstring>>();
+                    auto Data = MergeJsons (InputPath, WorkingFiles, Keys);
+                    WriteData (Data, OutputPath, OutputNames[J], 1);
+                }
                 else {
                     std::wcerr << L"Invalid function ID selected."<<std::endl;
                     return 3;

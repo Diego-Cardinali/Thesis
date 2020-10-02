@@ -6,7 +6,7 @@
 //Container referred to by Out is filled with size_t representing the number of consecutive
 //elements of the container referred to by Begin-End which are respectively higher and
 //lower of Threshold. All even positions in Out are segments for which the data is greater
-//or equal to Threshold, if the data starts with a portion  that is lower the first element
+//or equal to Threshold, if the data starts with a portion that is lower the first element
 //will be a 0. The return value is the size of Out.
 //The state (high or low) is changed only if a discrepancy is found long at least Discontinuity
 template<typename InIt, typename OutIt, typename T> 
