@@ -39,6 +39,7 @@
 #define DISPLACEMENT      12u
 #define DIVIDEFASTSLOW    13u
 #define JOINDISPLACEMENTS 14u
+#define VARSTEPN          15u
 
 using DataContainer = std::array<std::vector<double>, 3>;
 
@@ -408,7 +409,19 @@ int main(int Nargs, char** Args) {
                     WriteData (Data, OutputPath, OutputNames[J], TypeOfDataOut);
                 }
                 else if (TaskList[I] == RUNNINGAVERAGE) {
-                    //Never used
+                    for (unsigned long int K = 0; K != WorkingFiles.size(); ++K) {
+                        DataContainer Data = ReadData(InputPath/WorkingFiles[K], TypeOfDataIn);
+                        //ExtraIntParameter is index on which RunAvg will be computed
+                        //IntParameter is number of elements in running average
+                        DataContainer ProcessedData;
+                        ProcessedData[TaskInstructions[L"ExtraIntParameter"].as<size_t>()] = RunningAverage(Data[TaskInstructions[L"ExtraIntParameter"].as<size_t>()], TaskInstructions[L"IntParameter"].as<size_t>());
+                        std::vector<size_t> Indexes = {0, 1, 2};
+                        Indexes.erase(std::remove(Indexes.begin(), Indexes.end(), TaskInstructions[L"ExtraIntParameter"].as<size_t>()), Indexes.end());
+                        for (const auto & Index : Indexes) {
+                            ProcessedData[Index] = std::vector<double>(Data[Index].begin()+TaskInstructions[L"IntParameter"].as<size_t>(), Data[Index].end()-TaskInstructions[L"IntParameter"].as<size_t>());
+                        }
+                        WriteData(ProcessedData, OutputPath, OutputNames[J], TypeOfDataOut, K);
+                    }
                 }
                 else if (TaskList[I] == DISPLACEMENT) {
                     for (unsigned long int K = 0; K != WorkingFiles.size(); ++K) {
@@ -436,6 +449,13 @@ int main(int Nargs, char** Args) {
                     auto Keys = TaskInstructions[L"ArrayOfStringParameters"].as<std::vector<std::wstring>>();
                     auto Data = MergeJsons (InputPath, WorkingFiles, Keys);
                     WriteData (Data, OutputPath, OutputNames[J], 1);
+                }
+                else if (TaskList[I] == VARSTEPN) {
+                    for (unsigned long int K = 0; K != WorkingFiles.size(); ++K) {
+                        DataContainer Data = ReadData(InputPath/WorkingFiles[K], TypeOfDataIn);
+                        DataContainer ProcessedData = VariationsStepN(Data, TaskInstructions[L"DoubleParameter"].as<double>(), TaskInstructions[L"IntParameter"].as<size_t>());
+                        WriteData(ProcessedData, OutputPath, OutputNames[J], TypeOfDataOut, K);
+                    }
                 }
                 else {
                     std::wcerr << L"Invalid function ID selected."<<std::endl;
