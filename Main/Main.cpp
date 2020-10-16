@@ -40,6 +40,8 @@
 #define DIVIDEFASTSLOW    13u
 #define JOINDISPLACEMENTS 14u
 #define VARSTEPN          15u
+#define DISPLACEMENTOVERT 16u
+#define MEANDISPLACEMENT  17u
 
 using DataContainer = std::array<std::vector<double>, 3>;
 
@@ -455,6 +457,17 @@ int main(int Nargs, char** Args) {
                         DataContainer Data = ReadData(InputPath/WorkingFiles[K], TypeOfDataIn);
                         DataContainer ProcessedData = VariationsStepN(Data, TaskInstructions[L"DoubleParameter"].as<double>(), TaskInstructions[L"IntParameter"].as<size_t>());
                         WriteData(ProcessedData, OutputPath, OutputNames[J], TypeOfDataOut, K);
+                    }
+                }
+                else if (TaskList[I] == DISPLACEMENTOVERT) {
+                    for (unsigned long int K = 0; K != WorkingFiles.size(); ++K) {
+                        if (Verbose) {
+                            Output << L"Working on " << WorkingFiles[K]<<L" - "<<ExtraWorkingFiles[K]<<L'\n';
+                        }
+                        DataContainer Data = ReadData(InputPath/WorkingFiles[K], TypeOfDataIn);
+                        std::vector<size_t> Tracks = ReadData1D(TaskInstructions[L"ExtraInputPath"].as<std::wstring>()/ExtraWorkingFiles[K], TaskInstructions[L"ExtraTypeOfDataIn"].as<std::wstring>());
+                        auto JData = DisplacementOverTime(Data, Tracks);
+                        WriteData(JData, OutputPath, OutputNames[J], K);
                     }
                 }
                 else {

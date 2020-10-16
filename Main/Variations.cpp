@@ -31,10 +31,10 @@ std::array<std::vector<double>, 3> VariationsStepN (const std::array<std::vector
 	ProcessedData[0].reserve(Data[0].size()-1);
 	ProcessedData[1].reserve(Data[1].size()-1);
 	ProcessedData[2].reserve(Data[2].size()-1);
-	for (unsigned long int I = 0ul; I < Data[0].size()-1; I+=Step){
-		ProcessedData[0].push_back((Data[0][I+1]-Data[0][I])/DeltaT);
-		ProcessedData[1].push_back((Data[1][I+1]-Data[1][I])/DeltaT);
-		ProcessedData[2].push_back((Data[2][I+1]-Data[2][I])/DeltaT);
+	for (unsigned long int I = 0ul; I < Data[0].size()-Step; I+=Step){
+		ProcessedData[0].push_back((Data[0][I+Step]-Data[0][I])/DeltaT);
+		ProcessedData[1].push_back((Data[1][I+Step]-Data[1][I])/DeltaT);
+		ProcessedData[2].push_back((Data[2][I+Step]-Data[2][I])/DeltaT);
 	}
 	return ProcessedData;
 }
