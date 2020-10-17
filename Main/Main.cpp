@@ -42,6 +42,7 @@
 #define VARSTEPN          15u
 #define DISPLACEMENTOVERT 16u
 #define MEANDISPLACEMENT  17u
+#define DATAMEAN          18u
 
 using DataContainer = std::array<std::vector<double>, 3>;
 
@@ -205,6 +206,15 @@ void WriteData (const jsoncons::wojson& JData, const std::filesystem::path& OutP
         Number = Temp.str();
     }
     std::filesystem::path Output =  OutPath/std::wstring(OutputName+L"_"+Number+L".json");
+    std::wofstream OutStream (Output);
+    OutStream << JData;
+    OutStream.close();
+}
+
+void WriteData (const jsoncons::wojson& JData, const std::filesystem::path& OutPath,
+    const std::wstring& OutputName) {
+    //Save Data
+    std::filesystem::path Output =  OutPath/std::wstring(OutputName+L".json");
     std::wofstream OutStream (Output);
     OutStream << JData;
     OutStream.close();
@@ -470,6 +480,33 @@ int main(int Nargs, char** Args) {
                         WriteData(JData, OutputPath, OutputNames[J], K);
                     }
                 }
+                else if (TaskList[I] == MEANDISPLACEMENT) {
+                    for (unsigned long int K = 0; K != WorkingFiles.size(); ++K) {
+                        jsoncons::wojson JData;
+                        {
+                            std::wstringstream Temp = FileManip::DataInput(InputPath/WorkingFiles[K]);
+                            JData = jsoncons::wojson::parse(Temp);
+                        }
+                        MeanDisplacement (JData, TaskInstructions[L"ArrayOfStringParameters"].as<std::vector<std::wstring>>(), TaskInstructions[L"ExtraArrayOfStringParameters"].as<std::vector<std::wstring>>());
+                        WriteData(JData, OutputPath, OutputNames[J], K);
+                        }
+                }
+                else if (TaskList[I] == DATAMEAN) {
+                    jsoncons::wojson Means;
+                    Means.insert_or_assign(L"TypeOfData", TypeOfDataIn);
+                    Means.insert_or_assign(L"DataIndex", TaskInstructions[L"IntParameter"].as<size_t>());
+                    Means.insert_or_assign(L"Means", jsoncons::json_array_arg);
+                    Means.insert_or_assign(L"NSamples", jsoncons::json_array_arg);
+                    Means[L"Means"].reserve(WorkingFiles.size());
+                    Means[L"NSamples"].reserve(WorkingFiles.size());
+                    for (unsigned long int K = 0; K != WorkingFiles.size(); ++K) {
+                        DataContainer Data = ReadData(InputPath/WorkingFiles[K], TypeOfDataIn);
+                        Means[L"Means"].push_back(Utility::Mean(Data[TaskInstructions[L"IntParameter"].as<size_t>()]));
+                        Means[L"NSamples"].push_back(Data[TaskInstructions[L"IntParameter"].as<size_t>()].size());
+                    }
+                    WriteData(Means, OutputPath, OutputNames[J]);
+                }
+
                 else {
                     std::wcerr << L"Invalid function ID selected."<<std::endl;
                     return 3;

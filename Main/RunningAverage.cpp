@@ -13,7 +13,7 @@ std::vector<double> RunningAverage (const std::vector<double> & Data, const size
 	for (size_t I = Radius; I != Data.size()-Radius; ++I) {
 		std::vector<double>::const_iterator First = Data.begin()+I-Radius;
 		std::vector<double>::const_iterator Last = Data.begin()+I+Radius;
-		Averages.push_back(Utility::NormalMean(std::vector<double>(First, Last)));
+		Averages.push_back(Utility::Mean(std::vector<double>(First, Last)));
 	}
 	return Averages;
 }
