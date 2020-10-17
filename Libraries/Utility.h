@@ -20,7 +20,7 @@ namespace Utility {
     extern double Distance (const std::vector <double> & Vector1, const std::vector <double> & Vector2);
 
     //Computes the unweighted mean of the elements of a vector.
-    extern double NormalMean (const std::vector <double> & Vector);
+    extern double Mean (const std::vector <double> & Vector);
 
     //Returns a normalized version of a vector. Takes any type, but only returns double.
     template <class C> std::vector<double> NormalizeVector (const std::vector<C> & Vector);

@@ -38,7 +38,7 @@ double Utility::Distance (const std::vector <double> & Vector1, const std::vecto
 }
 
 //Computes the unweighted mean of the elements of a vector.
-double Utility::NormalMean (const std::vector<double> & Vector) {
+double Utility::Mean (const std::vector<double> & Vector) {
 	double Sum = 0.;
 	for (auto & U : Vector) {
 		Sum += U;
