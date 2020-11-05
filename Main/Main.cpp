@@ -37,12 +37,14 @@
 #define JOINTRACKS        10u
 #define RUNNINGAVERAGE    11u
 #define DISPLACEMENT      12u
-#define DIVIDEFASTSLOW    13u
+#define FASTSLOWLIMITS    13u
 #define JOINDISPLACEMENTS 14u
 #define VARSTEPN          15u
 #define DISPLACEMENTOVERT 16u
 #define MEANDISPLACEMENT  17u
 #define DATAMEAN          18u
+#define DIVIDEFASTSLOW    19u
+#define COORDTOVELMODULE  20u
 
 using DataContainer = std::array<std::vector<double>, 3>;
 
@@ -446,21 +448,21 @@ int main(int Nargs, char** Args) {
                         WriteData(JData, OutputPath, OutputNames[J], K);
                         }
                 }
-                else if (TaskList[I] == DIVIDEFASTSLOW) {
+                else if (TaskList[I] == FASTSLOWLIMITS) {
                     for (unsigned long int K = 0; K != WorkingFiles.size(); ++K) {
                         if (Verbose) {
                             Output << L"Working on " << WorkingFiles[K]<<L" - "<<ExtraWorkingFiles[K]<<L'\n';
                         }
                         DataContainer Data = ReadData(InputPath/WorkingFiles[K], TypeOfDataIn);
                         std::vector<size_t> Tracks = ReadData1D(TaskInstructions[L"ExtraInputPath"].as<std::wstring>()/ExtraWorkingFiles[K], TaskInstructions[L"ExtraTypeOfDataIn"].as<std::wstring>());
-                        auto JData = DivideFastSlow(Data, Tracks);
+                        auto JData = GetFastSlowLimits(Data, Tracks);
                         WriteData(JData, OutputPath, OutputNames[J], K);
                     }
                 }
                 else if (TaskList[I] == JOINDISPLACEMENTS) {
                     auto Keys = TaskInstructions[L"ArrayOfStringParameters"].as<std::vector<std::wstring>>();
                     auto Data = MergeJsons (InputPath, WorkingFiles, Keys);
-                    WriteData (Data, OutputPath, OutputNames[J], 1);
+                    WriteData (Data, OutputPath, OutputNames[J]);
                 }
                 else if (TaskList[I] == VARSTEPN) {
                     for (unsigned long int K = 0; K != WorkingFiles.size(); ++K) {
@@ -494,19 +496,73 @@ int main(int Nargs, char** Args) {
                 else if (TaskList[I] == DATAMEAN) {
                     jsoncons::wojson Means;
                     Means.insert_or_assign(L"TypeOfData", TypeOfDataIn);
-                    Means.insert_or_assign(L"DataIndex", TaskInstructions[L"IntParameter"].as<size_t>());
-                    Means.insert_or_assign(L"Means", jsoncons::json_array_arg);
-                    Means.insert_or_assign(L"NSamples", jsoncons::json_array_arg);
-                    Means[L"Means"].reserve(WorkingFiles.size());
-                    Means[L"NSamples"].reserve(WorkingFiles.size());
+                    for (const auto & Key : TaskInstructions[L"ArrayOfStringParameters"].as<std::vector<std::wstring>>()) {
+                        Means.insert_or_assign(Key, jsoncons::json_object_arg);
+                        Means[Key].insert_or_assign(L"Means", jsoncons::json_array_arg);
+                        Means[Key].insert_or_assign(L"NSamples", jsoncons::json_array_arg);
+                        Means[Key][L"Means"].reserve(WorkingFiles.size());
+                        Means[Key][L"NSamples"].reserve(WorkingFiles.size());
+                    }
                     for (unsigned long int K = 0; K != WorkingFiles.size(); ++K) {
-                        DataContainer Data = ReadData(InputPath/WorkingFiles[K], TypeOfDataIn);
-                        Means[L"Means"].push_back(Utility::Mean(Data[TaskInstructions[L"IntParameter"].as<size_t>()]));
-                        Means[L"NSamples"].push_back(Data[TaskInstructions[L"IntParameter"].as<size_t>()].size());
+                        jsoncons::wojson JData;
+                        {
+                            std::wstringstream Temp = FileManip::DataInput(InputPath/WorkingFiles[K]);
+                            JData = jsoncons::wojson::parse(Temp);
+                        }
+                        for (const auto & Key : TaskInstructions[L"ArrayOfStringParameters"].as<std::vector<std::wstring>>()) {
+                            for (size_t L = 0; L != JData[Key].size(); ++L) {
+                                if (JData[Key][L][TypeOfDataIn].size()) {
+                                    Means[Key][L"Means"].push_back(Utility::Mean(JData[Key][L][TypeOfDataIn].as<std::vector<double>>()));
+                                    Means[Key][L"NSamples"].push_back(JData[Key][L][TypeOfDataIn].size());
+                                }
+                                else {
+                                    Means[Key][L"Means"].push_back(0.);
+                                    Means[Key][L"NSamples"].push_back(0);
+                                }
+                            }
+                        }
                     }
                     WriteData(Means, OutputPath, OutputNames[J]);
                 }
-
+                else if (TaskList[I] == DIVIDEFASTSLOW) {
+                    for (unsigned long int K = 0; K != WorkingFiles.size(); ++K) {
+                        if (Verbose) {
+                            Output << L"Working on " << WorkingFiles[K]<<L" - "<<ExtraWorkingFiles[K]<<L'\n';
+                        }
+                        DataContainer Data = ReadData(InputPath/WorkingFiles[K], TypeOfDataIn);
+                        std::vector<size_t> Tracks = ReadData1D(TaskInstructions[L"ExtraInputPath"].as<std::wstring>()/ExtraWorkingFiles[K], TaskInstructions[L"ExtraTypeOfDataIn"].as<std::wstring>());
+                        auto JData = DivideFastSlow(Data, Tracks);
+                        WriteData(JData, OutputPath, OutputNames[J], K);
+                    }                    
+                }
+                else if (TaskList[I] == COORDTOVELMODULE) {
+                    for (unsigned long int K = 0; K != WorkingFiles.size(); ++K) {
+                        jsoncons::wojson FileTracks;
+                        jsoncons::wojson JData;
+                        {
+                            std::wstringstream Temp = FileManip::DataInput(InputPath/WorkingFiles[K]);
+                            JData = jsoncons::wojson::parse(Temp);
+                        }
+                        for (const auto & Key : TaskInstructions[L"ArrayOfStringParameters"].as<std::vector<std::wstring>>()) {
+                            FileTracks.insert_or_assign(Key, jsoncons::json_array_arg);
+                            FileTracks[Key].reserve(JData[Key].size());
+                            for (size_t L = 0; L != JData[Key].size(); ++L) {
+                                DataContainer TrackData;
+                                for (int M = 0; M != 3; ++M) {
+                                    TrackData[M].reserve(JData[Key][L].size());
+                                }
+                                for (long unsigned int M = 0ul; M != JData[Key][L].size(); ++M) {
+                                    TrackData[0].push_back(JData[Key][L][M][0].as<double>());
+                                    TrackData[1].push_back(JData[Key][L][M][1].as<double>());
+                                    TrackData[2].push_back(JData[Key][L][M][2].as<double>());
+                                }
+                                auto FinalData = CoordToVelModule(TrackData, TaskInstructions[L"DoubleParameter"].as<double>());
+                                FileTracks[Key].push_back(FinalData);
+                            }
+                        }
+                        WriteData(FileTracks, OutputPath, OutputNames[J], K);
+                    }                      
+                }
                 else {
                     std::wcerr << L"Invalid function ID selected."<<std::endl;
                     return 3;

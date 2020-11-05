@@ -9,7 +9,7 @@
 //or equal to Threshold, if the data starts with a portion that is lower the first element
 //will be a 0. The return value is the size of Out.
 //The state (high or low) is changed only if a discrepancy is found long at least Discontinuity
-template<typename InIt, typename OutIt, typename T> 
+template<typename T, typename InIt, typename OutIt> 
 size_t TrackLength( InIt Begin, InIt End, OutIt Out, T Threshold, size_t Discontinuity = 0) {
     size_t CntIns {};
     size_t N {};

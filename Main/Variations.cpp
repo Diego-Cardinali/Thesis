@@ -38,3 +38,19 @@ std::array<std::vector<double>, 3> VariationsStepN (const std::array<std::vector
 	}
 	return ProcessedData;
 }
+
+jsoncons::wojson CoordToVelModule (std::array<std::vector<double>, 3> & Data, const double DeltaT) {
+	jsoncons::wojson VelModule;
+	VelModule.insert_or_assign(L"Velocities", jsoncons::json_array_arg);
+	VelModule[L"Velocities"].reserve(Data[0].size()-1);
+	for (size_t I = 0; I != Data[0].size()-1; ++I) {
+		VelModule[L"Velocities"].push_back(
+			std::sqrt(
+				(Data[0][I+1]-Data[0][I])/DeltaT*(Data[0][I+1]-Data[0][I])/DeltaT+
+				(Data[1][I+1]-Data[1][I])/DeltaT*(Data[1][I+1]-Data[1][I])/DeltaT+
+				(Data[2][I+1]-Data[2][I])/DeltaT*(Data[2][I+1]-Data[2][I])/DeltaT
+			)
+		);
+	}
+	return VelModule;
+}
